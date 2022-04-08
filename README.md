@@ -31,6 +31,6 @@ This repo contains all files to launch a very simple web3 workflow:
 1. Voucher handler (1) transfers 1 entity of minted tokenId to customer(2) address (Remix IDE / ERC1155 capable wallet)
 2. Customer(2) opens passenger web side in mobile MetaMask browser (make sure the correct network is selected), signs that he is willing to spend his NFT -> QR code is generated
 3. Operator(3) opens the operator website in a MetaMask browser, activates the QR scanner, and scans the QR code from step 2.  
-After successful scan, the balance of (2) is shown and the availibilty to redeem (burn and send funds).
+After successful scan, the balance of (2) is shown and the redeem link (burn and send funds) is available.
 
 &copy;2022 Chain4Travel AG

@@ -47,7 +47,8 @@
     let qrCode
 
     const contractAddress = "0x9df887C314FA61D38E9a1fb0dEC8b60A7e57cb40";
-    const TST = "0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62"
+    // TransferSingle event signature for tracking incoming NFT's
+    const TSS = "0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62"
 
     const ABI = [
       {
@@ -165,7 +166,7 @@
         console.log('Waiting for TransferSingle ...');
         subscription = web3.eth.subscribe('logs', {
           address: contractAddress,
-          topics: [TST, null, null, '0x000000000000000000000000' + providerAddress.substring(2)]
+          topics: [TSS, null, null, '0x000000000000000000000000' + providerAddress.substring(2)]
         }, function(error, result){
           if (error)
             console.log(error);
