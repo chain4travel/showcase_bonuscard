@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>Bonuscard</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      text-align: center;
+    }
+
+    .js-btn {
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    #message {
+      max-width: 100%;
+      word-break: break-all;
+      text-align: initial;
+    }
+
+    section {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    #bonus {
+      width: 75%;
+      max-width: 400px;
+      border: 1px solid black;
+      font-size: 12px;
+    }
+  </style>
+
+  <script src="js/vendor/web3/dist/web3.min.js"></script>
+  <script src="js/vendor/qr/qrcode.min.js"></script>
+
+  <script>
+    let web3
+    let providerAddress
+    let subscription
+    let qrCode
+
+    const contractAddress = "0x9df887C314FA61D38E9a1fb0dEC8b60A7e57cb40";
+    const TST = "0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62"
+
+    const ABI = [
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "_owner",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "_id",
+            "type": "uint256"
+          }
+        ],
+        "name": "balanceOf",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ]
+
+    /***********   WEB3   ***********/
+
+    const subscribeProvider = (provider) => {
+      if (!provider.on) {
+        return;
+      }
+
+      provider.on('accountsChanged', async (accounts) => {
+        setAddress(web3.utils.toChecksumAddress(accounts[0]));
+      });
+    };
+
+    function setAddress(address) {
+      let shortAddress
+      if (address) {
+        address = web3.utils.toChecksumAddress(address);
+        shortAddress = address.substring(0, 6) + '...' + address.substring(38);
+      } else {
+        shortAddress = 'CONNECT WALLET';
+      }
+      providerAddress = address;
+      document.getElementById('connection').innerText = shortAddress;
+      document.getElementById("bonus").src = 'loading.gif';
+      document.getElementById("qrcode").innerHTML = "";
+      document.getElementById("message").innerHTML = "";
+
+      if (address) checkForTokenId()
+
+    }
+
+    async function launchWeb3() {
+      await unLaunchWeb3();
+
+      if (window.ethereum) {
+        web3 = new Web3(window.ethereum);
+        try {
+          // ask user permission to access his accounts
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+        } catch (error) {
+          console.log(error);
+          return;
+        }
+      } else {
+        alert("MetaMask required");
+        return;
+      }
+
+      const accounts = await web3.eth.getAccounts();
+      setAddress(web3.utils.toChecksumAddress(accounts[0]));
+      subscribeProvider(window.ethereum);
+    }
+
+    async function unLaunchWeb3() {
+      if (web3) {
+        window.ethereum.removeAllListeners();
+        web3 = undefined;
+        setAddress();
+        unsubscribe();
+      }
+    }
+
+    async function toggleLaunch() {
+      if (web3)
+        await unLaunchWeb3();
+      else
+        await launchWeb3(true);
+    }
+
+    async function checkForTokenId() {
+
+      const contract = new web3.eth.Contract(
+        ABI,
+        contractAddress
+      );
+
+      const balance = parseInt(await contract.methods.balanceOf(providerAddress, 2).call());
+
+      if (balance > 0) {
+        unsubscribe();
+
+        document.getElementById("bonus").src = 'https://4travelers.de/flights/images/eurowings.png';
+
+        return;
+      }
+
+      if (!subscription) {
+        console.log('Waiting for TransferSingle ...');
+        subscription = web3.eth.subscribe('logs', {
+          address: contractAddress,
+          topics: [TST, null, null, '0x000000000000000000000000' + providerAddress.substring(2)]
+        }, function(error, result){
+          if (error)
+            console.log(error);
+        })
+        .on("data", function(log){
+          console.log('Event catched');
+          checkForTokenId();
+        })
+      }
+    }
+
+    function unsubscribe() {
+      if (subscription) {
+        subscription.unsubscribe(function(error, success){
+          if(success) {
+              console.log('Successfully unsubscribed!');
+              subscription = undefined;
+          }
+        });
+      }
+    }
+
+    async function signMessage() {
+      const message = 'Burn my voucher and give me a drink'
+
+      const sig = web3.utils.toHex(await web3.eth.personal.sign(message, providerAddress));
+      
+      const result = {
+        address: providerAddress,
+        signature: sig
+      }
+
+      qrCode = new QRCode(document.getElementById("qrcode"), JSON.stringify(result).padEnd(220));
+
+      const pretty = JSON.stringify(result, (k,v) => {
+        return k=='address' || k=='signature' ? v.substring(0,6) + '...' + v.substring(v.length - 4) : v
+      }, 2);
+      document.getElementById("message").innerHTML = '<pre style="white-space:pre-wrap">' + pretty + '</pre>';
+    }
+  </script>
+</head>
+
+<body onload="launchWeb3()">
+  <h2>Passenger Bonuscard</h2>
+  <a id="connection" onclick="toggleLaunch()" class="js-btn">CONNECT WALLET</a>
+  <section>
+    <img id="bonus" src="loading.gif" alt="Bonus" />
+  </section>
+  <section id="sign">
+    <p><a onclick="signMessage()" class="js-btn">Sign Message</a></p>
+    <p id="message"></p>
+    <div style="margin-bottom: 100px;" id="qrcode"></div>
+  </section>
+</body>
+
+</html>

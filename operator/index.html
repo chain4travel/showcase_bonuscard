@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>Bonuscard (Operator)</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      text-align: center;
+    }
+
+    section {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .js-btn {
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    #message {
+      text-align: initial;
+    }
+
+    #camera-control {
+      display: none;
+    }
+
+    #camera-out {
+      max-width: 450px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    #tx {
+      display: none;
+    }
+  </style>
+
+  <script src="js/vendor/web3/dist/web3.min.js"></script>
+  <script src="js/vendor/qr/qr-scanner.min.js"></script>
+
+  <script>
+    let web3
+    let providerAddress
+
+    let html5QrCode
+    let numCameras = 0
+    let currentCamera = 0
+
+    let jsonResult
+    let sending = false
+
+    const contractAddress = "0x9df887C314FA61D38E9a1fb0dEC8b60A7e57cb40";
+    const TST = "0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62"
+
+    const ABI = [
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "_owner",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "_id",
+            "type": "uint256"
+          }
+        ],
+        "name": "balanceOf",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint256",
+            "name": "tokenId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes",
+            "name": "userSig",
+            "type": "bytes"
+          }
+        ],
+        "name": "redeem",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      }
+    ]
+
+    /***********   WEB3   ***********/
+
+    const subscribeProvider = (provider) => {
+      if (!provider.on) {
+        return;
+      }
+
+      provider.on('accountsChanged', async (accounts) => {
+        setAddress(web3.utils.toChecksumAddress(accounts[0]));
+      });
+    };
+
+    function setAddress(address) {
+      let shortAddress
+      if (address) {
+        address = web3.utils.toChecksumAddress(address);
+        shortAddress = address.substring(0, 6) + '...' + address.substring(38);
+      } else {
+        shortAddress = 'CONNECT WALLET';
+      }
+      providerAddress = address;
+      document.getElementById('connection').innerText = shortAddress;
+      document.getElementById("message").innerHTML = "";
+    }
+
+    function initialize() {
+      const cam = localStorage.getItem('camera')
+      if (cam) currentCamera = parseInt(cam)
+
+      launchWeb3();
+    }
+
+    async function launchWeb3() {
+      await unLaunchWeb3();
+
+      if (window.ethereum) {
+        web3 = new Web3(window.ethereum);
+        try {
+          // ask user permission to access his accounts
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+        } catch (error) {
+          console.log(error);
+          return;
+        }
+      } else {
+        alert("MetaMask required");
+        return;
+      }
+
+      const accounts = await web3.eth.getAccounts();
+      setAddress(web3.utils.toChecksumAddress(accounts[0]));
+      subscribeProvider(window.ethereum);
+    }
+
+    async function unLaunchWeb3() {
+      if (web3) {
+        window.ethereum.removeAllListeners();
+        web3 = undefined;
+        setAddress();
+      }
+    }
+
+    async function toggleLaunch() {
+      if (web3)
+        await unLaunchWeb3();
+      else
+        await launchWeb3(true);
+    }
+
+    async function switchCamera() {
+      currentCamera++;
+      if (currentCamera >= numCameras)
+        currentCamera = 0;
+
+      localStorage.setItem('camera', currentCamera.toString());
+      scan();
+    }
+
+    async function stopCamera() {
+      if (html5QrCode) {
+        try {
+          await html5QrCode.stop();
+        } catch(e) {
+          console.log(e)
+        }
+        html5QrCode = undefined       
+      }
+      document.getElementById("camera-control").style.display = 'none';
+    }
+
+    async function prepareTransaction() {
+      if (!jsonResult) return
+
+      const contract = new web3.eth.Contract(
+        ABI,
+        contractAddress
+      );
+
+      const balance = await contract.methods.balanceOf(jsonResult.address, 2).call();
+      document.getElementById("balance").innerHTML = 'Passengers Balance: ' + balance;
+
+      document.getElementById("tx").style.display = 'initial';
+    }
+
+    async function scan() {
+      sending = false
+      document.getElementById("message").innerHTML = ''
+      document.getElementById("tx").style.display = 'none'
+      document.body.style.removeProperty('background-color');
+
+      await stopCamera();
+      jsonResult = undefined
+
+      Html5Qrcode.getCameras().then(devices => {
+        numCameras = devices.length
+        if (devices && devices.length) {
+          if (currentCamera >= devices.length) {
+            switchCamera()
+            return
+          }
+          var cameraId = devices[currentCamera].id;
+
+          html5QrCode = new Html5Qrcode("camera-out");
+
+          document.getElementById("camera-control").style.display = 'initial';
+
+          html5QrCode.start(
+          cameraId,     // retreived in the previous step.
+          {
+            fps: 10,    // sets the framerate to 10 frame per second
+            qrbox: 250  // sets only 250 X 250 region of viewfinder to
+                        // scannable, rest shaded.
+          },
+          qrCodeMessage => {
+            // do something when code is read. For example:
+            jsonResult = JSON.parse(qrCodeMessage.trim());
+
+            const pretty = JSON.stringify(jsonResult, (k,v) => {
+              return typeof v === 'string' ? v.substring(0,6) + '...' + v.substring(v.length - 4) : v
+            }, 2);
+            document.getElementById("message").innerHTML = '<pre>' + pretty + '</pre>'
+
+            stopCamera()
+
+            prepareTransaction()
+          },
+          errorMessage => {
+            // Camera running, but no QR code
+          })
+          .catch(err => {
+            alert("Error starting camera")
+            html5QrCode = undefined
+            console.log(err)
+          });
+        }
+      }).catch(err => {
+        alert("Error selecting camera")
+        console.log(err)
+      });
+    }
+
+    async function burn() {
+      if (!jsonResult || sending) return
+
+      const contract = new web3.eth.Contract(
+        ABI,
+        contractAddress
+      );
+
+      sending = true
+
+      contract.methods
+      .redeem(2, jsonResult.signature)
+      .send({ from: providerAddress })
+      .on('error', (error) => {
+        sending = false;
+        alert(`Redeem failed (${error.message.split('\n')[0]})`);
+      })
+      .on('receipt', (receipt) => {
+        document.body.style.backgroundColor='lightgreen';
+      });
+    }
+  </script>
+</head>
+
+<body onload="initialize()">
+  <h2>Operator Bonuscard</h2>
+  <a id="connection" onclick="toggleLaunch()" class="js-btn">CONNECT WALLET</a>
+  <p><a onclick="scan()" class="js-btn">Scan QR code</a></p>
+  <div id="camera-out"></div>
+  <section id="scan">
+    <div id="camera-control">
+      <p><a onclick="switchCamera()" class="js-btn">Switch Camera</a></p>
+      <p><a onclick="stopCamera()" class="js-btn">Stop Camera</a></p>
+    </div>
+    <p id="message"></p>
+  </section>
+  <section id="tx">
+    <p id="balance"></p>
+    <p><a onclick="burn()" class="js-btn">Redeem Voucher</a></p>
+  </section>
+</body>
+
+</html>
