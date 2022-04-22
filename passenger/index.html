@@ -180,16 +180,27 @@
 </head>
 
 <body onload="launchWeb3()">
-  <h2>Passenger Bonuscard</h2>
-  <a id="connection" onclick="toggleLaunch()" class="js-btn">CONNECT WALLET</a>
-  <section>
-    <img id="bonus" src="loading.gif" alt="Bonus" />
-  </section>
-  <section id="sign">
-    <p><a onclick="signMessage()" class="js-btn">Sign Message</a></p>
-    <p id="message"></p>
-    <div style="margin-bottom: 100px;" id="qrcode"></div>
-  </section>
+  <div class="container p-4 mx-auto text-center flex flex-col h-screen items-center justify-center">
+    <h1 class="font-bold text-3xl mb-4">
+      Passenger Bonuscard
+    </h1>
+    <a id="connection" onclick="toggleLaunch()" class="js-btn font-mono bg-gray-100 text-gray-700 py-2 px-4 rounded">
+      Connect wallet
+    </a>
+    <section class="border border-gray-200 max-w-xl mx-auto block my-8 rounded-xl shadow-xl">
+      <img id="bonus" class="max-w-md" src="loading.gif" alt="Bonus" />
+    </section>
+    <section id="sign">
+      <a onclick="signMessage()" class="block js-btn bg-[#af1e65] text-white py-3 px-4 rounded cursor-pointer">
+        Redeem Voucher
+      </a>
+    </section>
+    <!-- TODO: Overlay should be opened with content -->
+    <div id="overlay" class="fixed p-4 bg-white rounded-xl shadow-xl z-0">
+      <div id="qrcode" class="mx-auto mb-4"></div>
+      <p id="message" class="text-sm font-mono bg-gray-100 text-gray-700 py-2 px-4 rounded"></p>
+    </div>
+  </div>
 </body>
 
 </html>
