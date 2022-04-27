@@ -10,6 +10,15 @@
   <script src="js/vendor/qr/qrcode.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <style type="text/tailwindcss">
+    #qrcode[title] {
+      @apply p-4
+    }
+    #qrcode[title] + #message {
+      @apply p-4
+    }
+  </style>
+
   <script>
     let web3
     let providerAddress
@@ -196,8 +205,8 @@
         <span class="pl-2">Redeem Voucher</span>
       </a>
     </section>
-    <div id="overlay" class="fixed bg-white rounded-xl shadow-xl z-0">
-      <div id="qrcode" class=""></div>
+    <div id="overlay" class="fixed bg-white rounded-xl shadow-xl w-96 left-1/2 -translate-x-1/2">
+      <div id="qrcode" class="flex justify-center"></div>
       <p id="message" class="text-sm font-mono text-gray-700 rounded"></p>
     </div>
   </div>
